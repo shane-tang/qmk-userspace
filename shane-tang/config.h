@@ -22,6 +22,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //#define USE_MATRIX_I2C
 
+/* OLED options */
+#define BONGOCAT
+
 /* Select hand configuration */
 
 // #define MASTER_LEFT

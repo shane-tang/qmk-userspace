@@ -150,12 +150,18 @@ uint8_t bongo_line_data[8][34] = {
     48, 54, 72, 72, 72, 57, 43, 1, 17}
 };
 
-enum anin_states { sleep, idle, prep, tap };
+enum anim_states { sleep, idle, prep, tap };
 uint8_t anim_state = idle;
 uint32_t idle_timeout_timer = 0;
 uint32_t anim_timer = 0;
 uint8_t current_idle_frame = 0;
 uint8_t current_tap_frame = 6;
+
+// when false, the one-time table must be drawn
+bool drawn_once = false;
+enum tap_paws { left, right };
+// determines if the left or right paw should tap next
+uint8_t tap_paw = left;
 
 void write_bongochar_at_pixel_xy(uint8_t x, uint8_t y, const char data, bool invert) {
     uint8_t i, j, temp;
@@ -185,13 +191,12 @@ bool is_key_down(void) {
 }
 
 void eval_anim_state(void) {
-    bool key_down;
-    key_down = is_key_down();
+    bool key_down = is_key_down();
 
     switch (anim_state) {
         case sleep:
             if(key_down) { anim_state = tap; }
-            break; 
+            break;
         case idle:
             if(key_down) { anim_state = tap; }
             else if (timer_elapsed32(idle_timeout_timer) >= SLEEP_TIMEOUT) //prep to idle
@@ -244,7 +249,6 @@ void draw_bongocat_frame(int framenumber) {
 }
 
 void draw_bongocat(void) {
-    static bool already_tapped = false;
     eval_anim_state();
     switch (anim_state) {
         case sleep:
@@ -259,26 +263,27 @@ void draw_bongocat(void) {
             break;
         case prep:
             draw_bongocat_frame(5);
-            already_tapped = false;
             break;
         case tap:
-            draw_bongocat_frame(current_tap_frame);
-            if (already_tapped == false) {
-                if (current_tap_frame == 6) {
-                    current_tap_frame = 7;
-                }
-                else {
-                    current_tap_frame = 6;
-                }
+            if (tap_paw == left) {
+                draw_bongocat_frame(6);
             }
-            already_tapped = true;
+            if (tap_paw == right) {
+                draw_bongocat_frame(7);
+            }
             break;
         default:
             draw_bongocat_frame(4);
-            already_tapped = false;
             break;
 
     }
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        tap_paw = (tap_paw + 1) % 2;
+    }
+    return true;
 }
 
 void blank_oled(void) {
@@ -290,10 +295,14 @@ void blank_oled(void) {
     }
 }
 
-void matrix_scan_kb(void) {
-    blank_oled();
-    draw_bongo_table();
-    draw_bongocat();
+bool oled_task_user(void) {
+   if (drawn_once == false) {
+       blank_oled();
+       draw_bongo_table();
+       drawn_once = true;
+   }
+   draw_bongocat();
+   return false;
 }
 
 #endif
